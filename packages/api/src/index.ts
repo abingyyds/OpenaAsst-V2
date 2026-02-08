@@ -9,6 +9,7 @@ import { deviceRoutes } from './routes/devices.js';
 import { settingsRoutes } from './routes/settings.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { hubRoutes } from './routes/hub.js';
+import { knowledgeRoutes } from './routes/knowledge.js';
 
 const app = new Hono();
 
@@ -22,6 +23,7 @@ app.route('/devices', deviceRoutes);
 app.route('/settings', settingsRoutes);
 app.route('/sessions', sessionRoutes);
 app.route('/hub', hubRoutes);
+app.route('/knowledge', knowledgeRoutes);
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
 

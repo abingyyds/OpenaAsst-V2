@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Settings, Save, X } from 'lucide-react';
+import { useState } from 'react';
+import { Settings, Save } from 'lucide-react';
 import { API_BASE_URL } from '../../lib/config';
 import { MCPConfig } from './MCPConfig';
 
@@ -11,8 +11,8 @@ interface SettingsData {
 }
 
 interface SettingsPanelProps {
-  open: boolean;
-  onClose: () => void;
+  open?: boolean;
+  onClose?: () => void;
 }
 
 const STORAGE_KEY = 'openasst-settings';
@@ -85,17 +85,10 @@ function saveSettings(data: SettingsData) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
+export function SettingsPanel(_props: SettingsPanelProps) {
   const [settings, setSettings] = useState<SettingsData>(loadSettings);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('general');
-
-  useEffect(() => {
-    if (open) {
-      setSettings(loadSettings());
-      setSaved(false);
-    }
-  }, [open]);
 
   const handleSave = () => {
     saveSettings(settings);
@@ -103,77 +96,59 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  if (!open) return null;
-
   const tabs: { id: TabId; label: string }[] = [
     { id: 'general', label: 'General' },
     { id: 'mcp', label: 'MCP' },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-page border border-stone-200 rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200">
-          <div className="flex items-center gap-2 text-ink">
-            <Settings size={18} />
-            <span className="font-heading font-semibold">Settings</span>
+    <div className="flex flex-col h-full bg-page text-ink">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-stone-200">
+        <div className="flex items-center gap-2">
+          <Settings size={18} className="text-accent" />
+          <span className="font-heading font-semibold text-sm">Settings</span>
+        </div>
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-2 px-4 py-1.5 text-sm rounded-lg
+            bg-accent hover:bg-accent-hover text-white transition-colors"
+        >
+          <Save size={14} />
+          {saved ? 'Saved!' : 'Save'}
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-stone-200 px-4">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-5 py-3 text-sm font-medium transition-colors relative ${
+              activeTab === tab.id
+                ? 'text-accent'
+                : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'general' && (
+          <GeneralTab settings={settings} setSettings={setSettings} />
+        )}
+        {activeTab === 'mcp' && (
+          <div className="px-6 py-5">
+            <MCPConfig />
           </div>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-stone-200">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-                activeTab === tab.id
-                  ? 'text-accent'
-                  : 'text-ink-muted hover:text-ink'
-              }`}
-            >
-              {tab.label}
-              {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent" />
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Body (scrollable) */}
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === 'general' && (
-            <GeneralTab settings={settings} setSettings={setSettings} />
-          )}
-          {activeTab === 'mcp' && (
-            <div className="px-6 py-5">
-              <MCPConfig />
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-stone-200">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg text-ink-secondary hover:text-ink
-              border border-stone-300 hover:border-stone-400 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg
-              bg-accent hover:bg-accent-hover text-white transition-colors"
-          >
-            <Save size={14} />
-            {saved ? 'Saved!' : 'Save'}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );

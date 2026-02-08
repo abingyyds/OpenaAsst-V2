@@ -39,6 +39,43 @@ fileRoutes.get('/serve', (c) => {
   }
 });
 
+// GET /files/stat?path=... — check file existence and size
+fileRoutes.get('/stat', (c) => {
+  const filePath = c.req.query('path');
+  if (!filePath) return c.json({ exists: false });
+  try {
+    const resolved = resolvePath(filePath);
+    const stat = statSync(resolved);
+    return c.json({
+      exists: true,
+      size: stat.size,
+      mtime: stat.mtimeMs,
+      isDirectory: stat.isDirectory(),
+    });
+  } catch {
+    return c.json({ exists: false });
+  }
+});
+
+// GET /files/download?path=... — download file as attachment
+fileRoutes.get('/download', (c) => {
+  const filePath = c.req.query('path');
+  if (!filePath) return c.text('path required', 400);
+  try {
+    const resolved = resolvePath(filePath);
+    const content = readFileSync(resolved);
+    const name = basename(resolved);
+    return new Response(content, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${name}"`,
+      },
+    });
+  } catch {
+    return c.text('File not found', 404);
+  }
+});
+
 fileRoutes.post('/read', async (c) => {
   const { path: filePath } = await c.req.json();
   try {

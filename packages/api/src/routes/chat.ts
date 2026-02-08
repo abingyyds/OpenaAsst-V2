@@ -3,6 +3,7 @@ import { runAgent, stopSession } from '../agent/orchestrator.js';
 import { planAgent, getPlan, deletePlan } from '../agent/planner.js';
 import { createSSEStream } from '../agent/streaming.js';
 import { DeviceManager } from '../server-mgmt/device-manager.js';
+import { KnowledgeManager } from '../knowledge/manager.js';
 import type { AgentRequest } from '@openasst/types';
 import { homedir } from 'os';
 import { join } from 'path';
@@ -11,6 +12,7 @@ import { mkdirSync } from 'fs';
 export const agentRoutes = new Hono();
 
 const deviceManager = new DeviceManager();
+const knowledgeManager = new KnowledgeManager();
 
 function buildDevicePrompt(prompt: string, deviceId: string): string {
   const device = deviceManager.getDevice(deviceId);
@@ -50,7 +52,14 @@ agentRoutes.post('/', async (c) => {
     || join(homedir(), '.openasst', 'sessions', taskId || 'default');
   mkdirSync(workDir, { recursive: true });
 
-  const finalPrompt = deviceId ? buildDevicePrompt(prompt, deviceId) : prompt;
+  let finalPrompt = deviceId ? buildDevicePrompt(prompt, deviceId) : prompt;
+
+  // Inject knowledge base context
+  const knowledgeCtx = knowledgeManager.buildContext(prompt);
+  if (knowledgeCtx) {
+    finalPrompt = knowledgeCtx + '\n---\n\n' + finalPrompt;
+  }
+
   const generator = runAgent(finalPrompt, workDir, modelConfig);
   const { readable, headers } = createSSEStream(generator);
 

@@ -20,23 +20,27 @@ const navItems: { view: ViewType; icon: typeof MessageSquare; label: string; hig
 
 export function Sidebar({ activeView, onNavigate }: SidebarProps) {
   return (
-    <div className="w-14 h-full flex flex-col items-center py-4 gap-1 bg-sidebar border-r border-stone-700">
-      {navItems.map(({ view, icon: Icon, label, highlight }) => (
-        <button
-          key={view}
-          onClick={() => onNavigate(view)}
-          title={label}
-          className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${
-            activeView === view
-              ? 'bg-accent text-white'
-              : highlight
-                ? 'text-accent hover:text-white hover:bg-stone-700'
-                : 'text-stone-500 hover:text-stone-200 hover:bg-stone-700'
-          }`}
-        >
-          <Icon size={20} />
-        </button>
-      ))}
+    <div className="w-[68px] h-full flex flex-col items-center py-3 gap-0.5 bg-sidebar border-r border-stone-700">
+      {navItems.map(({ view, icon: Icon, label, highlight }) => {
+        const active = activeView === view;
+        return (
+          <button
+            key={view}
+            onClick={() => onNavigate(view)}
+            title={label}
+            className={`w-[58px] flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors ${
+              active
+                ? 'bg-accent text-white'
+                : highlight
+                  ? 'text-accent hover:text-white hover:bg-stone-700'
+                  : 'text-stone-400 hover:text-stone-200 hover:bg-stone-700'
+            }`}
+          >
+            <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
+            <span className="text-[9px] leading-tight font-medium">{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

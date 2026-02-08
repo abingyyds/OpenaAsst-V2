@@ -2,7 +2,6 @@ import { useState, useRef, useCallback } from 'react';
 import { DeviceTabBar, type DeviceTab } from './DeviceTabBar';
 import { TerminalView } from './TerminalView';
 import { DeviceChatView } from './DeviceChatView';
-import { CodeView } from './CodeView';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface DeviceWorkspaceProps {
@@ -40,11 +39,10 @@ export function DeviceWorkspace({ deviceId }: DeviceWorkspaceProps) {
 
   return (
     <div ref={containerRef} className="flex flex-col h-full">
-      {/* Top: Chat / Code tabs + content */}
+      {/* Top: Chat + content */}
       <DeviceTabBar activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'chat' && <DeviceChatView deviceId={deviceId} />}
-        {activeTab === 'code' && <CodeView deviceId={deviceId} />}
+        <DeviceChatView deviceId={deviceId} />
       </div>
 
       {/* Resizer bar */}

@@ -1,6 +1,37 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { FileText, Presentation, Table, File, RefreshCw, Loader2 } from 'lucide-react';
+import { FileText, Presentation, Table, File, RefreshCw, Loader2, Download, CheckCircle2 } from 'lucide-react';
 import { API_BASE_URL } from '../../lib/config';
+
+/** Poll file stat while streaming to show real-time progress */
+function useFileStat(filePath: string | null, streaming?: boolean) {
+  const [stat, setStat] = useState<{ exists: boolean; size: number; mtime: number } | null>(null);
+
+  const poll = useCallback(async () => {
+    if (!filePath) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/files/stat?path=${encodeURIComponent(filePath)}`);
+      const data = await res.json();
+      setStat(data);
+    } catch { /* ignore */ }
+  }, [filePath]);
+
+  useEffect(() => { poll(); }, [poll]);
+
+  useEffect(() => {
+    if (!streaming) return;
+    const t = setInterval(poll, 1500);
+    return () => clearInterval(t);
+  }, [streaming, poll]);
+
+  // Final poll when streaming stops
+  const prev = useRef(streaming);
+  useEffect(() => {
+    if (prev.current && !streaming) poll();
+    prev.current = streaming;
+  }, [streaming, poll]);
+
+  return stat;
+}
 
 interface DocumentPreviewProps {
   filePath: string | null;
@@ -32,13 +63,13 @@ export function DocumentPreview({ filePath, sessionId, streaming }: DocumentPrev
         ) : isMd ? (
           <TextLivePreview filePath={filePath} streaming={streaming} ext="md" />
         ) : ext === 'csv' || ext === 'xlsx' || ext === 'xls' ? (
-          <SpreadsheetPreview filePath={filePath} />
+          <FileStatusPreview filePath={filePath} streaming={streaming} icon={Table} iconColor="text-green-600" label="Spreadsheet" />
         ) : ext === 'pdf' ? (
-          <PdfPreview filePath={filePath} />
+          <FileStatusPreview filePath={filePath} streaming={streaming} icon={FileText} iconColor="text-red-500" label="PDF" />
         ) : ext === 'pptx' || ext === 'ppt' ? (
-          <PptPreview filePath={filePath} />
+          <FileStatusPreview filePath={filePath} streaming={streaming} icon={Presentation} iconColor="text-accent" label="Presentation" />
         ) : (
-          <GenericPreview filePath={filePath} ext={ext} />
+          <FileStatusPreview filePath={filePath} streaming={streaming} icon={File} iconColor="text-ink-muted" label={`.${ext} file`} />
         )}
       </div>
     </div>
@@ -181,58 +212,63 @@ function EmptyState() {
   );
 }
 
-function PptPreview({ filePath }: { filePath: string }) {
-  return (
-    <div className="p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Presentation size={16} className="text-accent" />
-        <span className="text-xs text-ink-secondary truncate">{filePath}</span>
-      </div>
-      <div className="bg-surface rounded-lg border border-stone-200 aspect-[16/9] flex items-center justify-center">
-        <span className="text-sm text-ink-muted">PPT Preview</span>
-      </div>
-    </div>
-  );
-}
+function FileStatusPreview({
+  filePath,
+  streaming,
+  icon: Icon,
+  iconColor,
+  label,
+}: {
+  filePath: string;
+  streaming?: boolean;
+  icon: typeof File;
+  iconColor: string;
+  label: string;
+}) {
+  const stat = useFileStat(filePath, streaming);
+  const name = filePath.split('/').pop() || filePath;
+  const downloadUrl = `${API_BASE_URL}/files/download?path=${encodeURIComponent(filePath)}`;
 
-function SpreadsheetPreview({ filePath }: { filePath: string }) {
-  return (
-    <div className="p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Table size={16} className="text-green-600" />
-        <span className="text-xs text-ink-secondary truncate">{filePath}</span>
-      </div>
-      <div className="bg-surface rounded-lg border border-stone-200 p-4">
-        <span className="text-sm text-ink-muted">Spreadsheet Preview</span>
-      </div>
-    </div>
-  );
-}
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
-function PdfPreview({ filePath }: { filePath: string }) {
   return (
-    <div className="p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <FileText size={16} className="text-red-500" />
-        <span className="text-xs text-ink-secondary truncate">{filePath}</span>
-      </div>
-      <div className="bg-surface rounded-lg border border-stone-200 aspect-[3/4] flex items-center justify-center">
-        <span className="text-sm text-ink-muted">PDF Preview</span>
-      </div>
-    </div>
-  );
-}
+    <div className="flex flex-col items-center justify-center h-full text-center px-6">
+      <Icon size={40} className={iconColor + ' mb-3'} />
+      <p className="text-sm font-medium text-ink mb-1 break-all">{name}</p>
+      <p className="text-[11px] text-ink-muted mb-4">{label}</p>
 
-function GenericPreview({ filePath, ext }: { filePath: string; ext?: string | null }) {
-  return (
-    <div className="p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <File size={16} className="text-ink-muted" />
-        <span className="text-xs text-ink-secondary truncate">{filePath}</span>
-      </div>
-      <div className="bg-surface rounded-lg border border-stone-200 p-4">
-        <span className="text-sm text-ink-muted">.{ext} file</span>
-      </div>
+      {streaming && !stat?.exists && (
+        <div className="flex items-center gap-2 text-accent text-xs mb-3">
+          <Loader2 size={14} className="animate-spin" />
+          Generating...
+        </div>
+      )}
+
+      {stat?.exists && (
+        <>
+          <div className="flex items-center gap-1.5 text-xs text-green-600 mb-3">
+            <CheckCircle2 size={14} />
+            {formatSize(stat.size)}
+            {streaming && (
+              <span className="text-accent ml-1 flex items-center gap-1">
+                <Loader2 size={10} className="animate-spin" /> writing
+              </span>
+            )}
+          </div>
+          <a
+            href={downloadUrl}
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg
+              bg-accent hover:bg-accent-hover text-white transition-colors"
+          >
+            <Download size={14} />
+            Download
+          </a>
+        </>
+      )}
     </div>
   );
 }

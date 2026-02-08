@@ -67,7 +67,7 @@ export function App() {
 
         {activeView === 'settings' && (
           <div className="flex-1">
-            <SettingsPanel open={true} onClose={() => setActiveView('chat')} />
+            <SettingsPanel />
           </div>
         )}
       </div>
