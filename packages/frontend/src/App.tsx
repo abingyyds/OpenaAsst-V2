@@ -9,6 +9,7 @@ import { CodeProjectView } from './components/code/CodeProjectView';
 import { WebsitesView } from './components/websites/WebsitesView';
 import { FilesView } from './components/files/FilesView';
 import { ClusterView } from './components/cluster/ClusterView';
+import { KnowledgeView } from './components/knowledge/KnowledgeView';
 
 export function App() {
   const [activeView, setActiveView] = useState<ViewType>('chat');
@@ -62,6 +63,12 @@ export function App() {
         {activeView === 'cluster' && (
           <div className="flex-1">
             <ClusterView />
+          </div>
+        )}
+
+        {activeView === 'knowledge' && (
+          <div className="flex-1">
+            <KnowledgeView />
           </div>
         )}
 

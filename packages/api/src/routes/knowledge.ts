@@ -23,3 +23,26 @@ knowledgeRoutes.get('/search', (c) => {
   const results = km.search(q);
   return c.json({ results });
 });
+
+// POST /knowledge/:category — add item to category
+knowledgeRoutes.post('/:category', async (c) => {
+  const categoryId = c.req.param('category');
+  const body = await c.req.json();
+  if (!body.title || !body.solution) {
+    return c.json({ error: 'title and solution required' }, 400);
+  }
+  km.addItem(categoryId, {
+    title: body.title,
+    keywords: body.keywords || [],
+    solution: body.solution,
+    commands: body.commands || [],
+  });
+  return c.json({ success: true });
+});
+
+// DELETE /knowledge/:category/:itemId — delete item
+knowledgeRoutes.delete('/:category/:itemId', (c) => {
+  const { category, itemId } = c.req.param();
+  const deleted = km.deleteItem(category, itemId);
+  return c.json({ deleted });
+});

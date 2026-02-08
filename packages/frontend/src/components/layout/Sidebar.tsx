@@ -1,6 +1,6 @@
-import { MessageSquare, Server, Settings, FileText, Code, Globe, FolderOpen, Network } from 'lucide-react';
+import { MessageSquare, Server, Settings, FileText, Code, Globe, FolderOpen, Network, BookOpen } from 'lucide-react';
 
-export type ViewType = 'chat' | 'servers' | 'cluster' | 'documents' | 'code' | 'websites' | 'files' | 'settings';
+export type ViewType = 'chat' | 'servers' | 'cluster' | 'documents' | 'code' | 'websites' | 'files' | 'knowledge' | 'settings';
 
 interface SidebarProps {
   activeView: ViewType;
@@ -15,6 +15,7 @@ const navItems: { view: ViewType; icon: typeof MessageSquare; label: string; hig
   { view: 'code', icon: Code, label: 'Code' },
   { view: 'websites', icon: Globe, label: 'Websites' },
   { view: 'files', icon: FolderOpen, label: 'Files' },
+  { view: 'knowledge', icon: BookOpen, label: 'Knowledge' },
   { view: 'settings', icon: Settings, label: 'Settings' },
 ];
 
