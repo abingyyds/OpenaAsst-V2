@@ -1,0 +1,24 @@
+{
+  "name": "openasst-desktop",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @openasst/frontend dev",
+    "dev:api": "pnpm --filter @openasst/api dev",
+    "dev:all": "concurrently \"pnpm dev:api\" \"pnpm dev\"",
+    "build": "pnpm -r build",
+    "build:types": "pnpm --filter @openasst/types build",
+    "build:api": "pnpm --filter @openasst/api build",
+    "build:frontend": "pnpm --filter @openasst/frontend build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  }
+}
