@@ -15,6 +15,10 @@ COPY packages/types/ packages/types/
 COPY packages/api/ packages/api/
 COPY packages/frontend/ packages/frontend/
 
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_API_URL
+
 RUN pnpm build:types
 RUN pnpm build:frontend
 RUN pnpm build:api

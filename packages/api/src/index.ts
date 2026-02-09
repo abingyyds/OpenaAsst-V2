@@ -37,9 +37,9 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 
 // Production: serve frontend static files
 if (process.env.NODE_ENV === 'production') {
-  app.use('/*', serveStatic({ root: '../frontend/dist' }));
+  app.use('/*', serveStatic({ root: './packages/frontend/dist' }));
   // SPA fallback: return index.html for non-API routes
-  app.get('*', serveStatic({ path: '../frontend/dist/index.html' }));
+  app.get('*', serveStatic({ path: './packages/frontend/dist/index.html' }));
 }
 
 const port = Number(process.env.PORT) || (process.env.NODE_ENV === 'production' ? 2620 : 2026);
