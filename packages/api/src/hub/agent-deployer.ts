@@ -47,17 +47,17 @@ export class AgentDeployer {
         await this.installNodeJs(device);
       }
 
-      // Step 3: Create directory
-      progress.step = 'Creating agent directory';
-      await this.sshExec(device, 'mkdir -p /opt/openasst-agent');
+      // Step 3: Install OpenAsst CLI
+      progress.step = 'Installing OpenAsst CLI';
+      await this.installOpenAsstCLI(device);
 
-      // Step 4: Upload agent script
-      progress.step = 'Uploading agent script';
-      await this.createAgentScript(device);
-
-      // Step 5: Configure
+      // Step 4: Configure agent
       progress.step = 'Configuring agent';
       await this.configureAgent(device);
+
+      // Step 5: Push API config
+      progress.step = 'Pushing API config';
+      await this.pushAPIConfig(device);
 
       // Step 6: Create systemd service
       progress.step = 'Creating systemd service';
@@ -102,11 +102,8 @@ export class AgentDeployer {
     }
   }
 
-  private async createAgentScript(device: DeviceConfig): Promise<void> {
-    const script = this.getAgentScript();
-    const escaped = script.replace(/'/g, "'\\''");
-    await this.sshExec(device, `echo '${escaped}' > /opt/openasst-agent/agent.js`);
-    await this.sshExec(device, 'npm install ws -g || true');
+  private async installOpenAsstCLI(device: DeviceConfig): Promise<void> {
+    await this.sshExec(device, 'npm install -g openasst || true');
   }
 
   private async configureAgent(device: DeviceConfig): Promise<void> {
@@ -122,6 +119,19 @@ export class AgentDeployer {
     await this.sshExec(device, `echo '${json}' > /etc/openasst/agent.json`);
   }
 
+  private async pushAPIConfig(device: DeviceConfig): Promise<void> {
+    // Read local API config and push to remote
+    const { APIProvider } = await import('../server-mgmt/api-provider.js');
+    const provider = new APIProvider();
+    const endpoint = provider.getAPIEndpoint();
+    if (!endpoint) return;
+
+    const configJson = JSON.stringify(endpoint, null, 2);
+    const escaped = configJson.replace(/'/g, "'\\''");
+    await this.sshExec(device, 'mkdir -p ~/.openasst-cli');
+    await this.sshExec(device, `echo '${escaped}' > ~/.openasst-cli/config.json`);
+  }
+
   private async createSystemdService(device: DeviceConfig): Promise<void> {
     const service = [
       '[Unit]',
@@ -130,7 +140,7 @@ export class AgentDeployer {
       '',
       '[Service]',
       'Type=simple',
-      'ExecStart=/usr/bin/node /opt/openasst-agent/agent.js',
+      'ExecStart=/usr/bin/npx openasst agent serve',
       'Restart=always',
       'RestartSec=5',
       '',
@@ -142,59 +152,6 @@ export class AgentDeployer {
       device,
       `printf '${service}' > /etc/systemd/system/openasst-agent.service`,
     );
-  }
-
-  private getAgentScript(): string {
-    return `#!/usr/bin/env node
-const WebSocket = require('ws');
-const { exec } = require('child_process');
-const fs = require('fs');
-
-const config = JSON.parse(fs.readFileSync('/etc/openasst/agent.json'));
-let ws;
-
-function connect() {
-  ws = new WebSocket(\\\`ws://\\\${config.masterHost}:\\\${config.masterPort}\\\`);
-
-  ws.on('open', () => {
-    console.log('Connected to master');
-    ws.send(JSON.stringify({
-      type: 'auth',
-      payload: { agentName: config.agentName, secretKey: config.secretKey },
-      timestamp: Date.now()
-    }));
-    setInterval(() => {
-      ws.send(JSON.stringify({ type: 'heartbeat', payload: {}, timestamp: Date.now() }));
-    }, 30000);
-  });
-
-  ws.on('message', (data) => {
-    const msg = JSON.parse(data);
-    if (msg.type === 'command') {
-      const start = Date.now();
-      exec(msg.payload.command, { maxBuffer: 10*1024*1024 }, (err, stdout, stderr) => {
-        ws.send(JSON.stringify({
-          type: 'command_result',
-          taskId: msg.taskId,
-          payload: {
-            deviceName: config.agentName,
-            success: !err,
-            output: stdout || stderr,
-            error: err ? err.message : undefined,
-            exitCode: err ? err.code || 1 : 0,
-            duration: Date.now() - start
-          },
-          timestamp: Date.now()
-        }));
-      });
-    }
-  });
-
-  ws.on('close', () => setTimeout(connect, 5000));
-  ws.on('error', () => {});
-}
-
-connect();`;
   }
 
   private async sshExec(device: DeviceConfig, command: string): Promise<{ output: string; error?: string; exitCode: number }> {

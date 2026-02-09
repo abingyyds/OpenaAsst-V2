@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Settings, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, Save, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../lib/config';
 import { MCPConfig } from './MCPConfig';
 
@@ -71,7 +71,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   },
 };
 
-type TabId = 'general' | 'mcp';
+type TabId = 'general' | 'mcp' | 'integrations';
 
 function loadSettings(): SettingsData {
   try {
@@ -90,8 +90,36 @@ export function SettingsPanel(_props: SettingsPanelProps) {
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('general');
 
-  const handleSave = () => {
+  // Load from backend on mount (backend is source of truth for API key)
+  useState(() => {
+    fetch(`${API_BASE_URL}/settings`).then(r => r.json()).then(data => {
+      if (data.settings?.apiKey) {
+        setSettings(prev => ({
+          ...prev,
+          apiKey: data.settings.apiKey,
+          baseUrl: data.settings.baseUrl || prev.baseUrl,
+          model: data.settings.model || prev.model,
+          provider: data.settings.provider || prev.provider,
+        }));
+      }
+    }).catch(() => {});
+  });
+
+  const handleSave = async () => {
     saveSettings(settings);
+    // Sync to backend so APIProvider can read it
+    try {
+      await fetch(`${API_BASE_URL}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: settings.apiKey,
+          baseUrl: settings.baseUrl || PROVIDERS[settings.provider]?.defaultBaseUrl || '',
+          model: settings.model,
+          provider: settings.provider,
+        }),
+      });
+    } catch { /* ignore */ }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -99,6 +127,7 @@ export function SettingsPanel(_props: SettingsPanelProps) {
   const tabs: { id: TabId; label: string }[] = [
     { id: 'general', label: 'General' },
     { id: 'mcp', label: 'MCP' },
+    { id: 'integrations', label: 'Integrations' },
   ];
 
   return (
@@ -149,6 +178,9 @@ export function SettingsPanel(_props: SettingsPanelProps) {
             <MCPConfig />
           </div>
         )}
+        {activeTab === 'integrations' && (
+          <IntegrationsTab />
+        )}
       </div>
     </div>
   );
@@ -166,7 +198,10 @@ function GeneralTab({
   setSettings: React.Dispatch<React.SetStateAction<SettingsData>>;
 }) {
   const provider = PROVIDERS[settings.provider] || PROVIDERS.custom;
-  const models = provider.models;
+  const [fetchedModels, setFetchedModels] = useState<{ id: string; name: string }[]>([]);
+  const [testing, setTesting] = useState(false);
+  const [testError, setTestError] = useState('');
+  const [tested, setTested] = useState(false);
 
   const handleProviderChange = (p: string) => {
     const cfg = PROVIDERS[p];
@@ -176,7 +211,39 @@ function GeneralTab({
       baseUrl: cfg?.defaultBaseUrl || '',
       model: cfg?.models[0] || '',
     }));
+    setFetchedModels([]); setTested(false); setTestError('');
   };
+
+  const testApi = async () => {
+    setTesting(true); setTestError(''); setFetchedModels([]);
+    const isAnthropic = settings.provider === 'anthropic' ||
+      settings.baseUrl.includes('anthropic');
+    const api = isAnthropic ? 'anthropic-messages' : 'openai-completions';
+    try {
+      const res = await fetch(`${API_BASE_URL}/robots/test-model`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api, baseUrl: settings.baseUrl || provider.defaultBaseUrl, apiKey: settings.apiKey }),
+      });
+      const data = await res.json();
+      if (data.ok && data.models?.length) {
+        setFetchedModels(data.models);
+        setTested(true);
+        if (!settings.model || !data.models.some((m: any) => m.id === settings.model)) {
+          setSettings((s) => ({ ...s, model: data.models[0].id }));
+        }
+      } else {
+        setTestError(data.error || 'No models returned');
+      }
+    } catch (e: any) {
+      setTestError(e.message || 'Connection failed');
+    }
+    setTesting(false);
+  };
+
+  const models = fetchedModels.length > 0
+    ? fetchedModels.map(m => m.id)
+    : provider.models;
 
   return (
     <div className="px-6 py-5 space-y-4">
@@ -216,6 +283,22 @@ function GeneralTab({
         placeholder={provider.defaultBaseUrl || 'https://your-api-endpoint.com/v1'}
         onChange={(v) => setSettings((s) => ({ ...s, baseUrl: v }))}
       />
+
+      {/* Test connection button */}
+      <button onClick={testApi} disabled={!settings.apiKey || testing}
+        className="w-full py-2 rounded-lg border border-accent text-accent text-sm font-semibold
+          hover:bg-accent/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+          flex items-center justify-center gap-2">
+        {testing && <Loader2 size={14} className="animate-spin" />}
+        {testing ? 'Testing...' : tested ? 'Re-test Connection' : 'Test Connection & Fetch Models'}
+      </button>
+
+      {testError && (
+        <p className="text-xs text-red-500 -mt-2">{testError}</p>
+      )}
+      {tested && !testError && (
+        <p className="text-xs text-green-600 -mt-2">Connected — {fetchedModels.length} models found</p>
+      )}
 
       {/* Model selector */}
       <div>
@@ -262,6 +345,93 @@ function GeneralTab({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Integrations Tab                                                    */
+/* ------------------------------------------------------------------ */
+
+const INTEGRATIONS_KEY = 'openasst-integrations';
+
+function loadIntegrations() {
+  try {
+    const raw = localStorage.getItem(INTEGRATIONS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return { githubToken: '', githubRepo: 'abingyyds/OpenAsst', tavilyKey: '', serperKey: '' };
+}
+
+function IntegrationsTab() {
+  const [data, setData] = useState(loadIntegrations);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [intSaved, setIntSaved] = useState(false);
+
+  const handleSaveIntegrations = () => {
+    localStorage.setItem(INTEGRATIONS_KEY, JSON.stringify(data));
+    setIntSaved(true);
+    setTimeout(() => setIntSaved(false), 2000);
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/knowledge/sync`, { method: 'POST' });
+      const json = await res.json();
+      if (json.error) {
+        setSyncResult(`Error: ${json.error}`);
+      } else {
+        setSyncResult(`Synced ${json.synced} categories to GitHub`);
+      }
+    } catch {
+      setSyncResult('Failed to sync');
+    }
+    setSyncing(false);
+  };
+
+  return (
+    <div className="px-6 py-5 space-y-6">
+      {/* GitHub */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wide">
+          GitHub Knowledge Sync
+        </h3>
+        <Field label="GitHub Token" type="password" value={data.githubToken}
+          placeholder="ghp_..." onChange={(v) => setData({ ...data, githubToken: v })} />
+        <Field label="GitHub Repo" value={data.githubRepo}
+          placeholder="owner/repo" onChange={(v) => setData({ ...data, githubRepo: v })} />
+        <button onClick={handleSync} disabled={syncing}
+          className="w-full py-2 rounded-lg border border-accent text-accent text-sm font-semibold
+            hover:bg-accent/5 disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
+          {syncing && <Loader2 size={14} className="animate-spin" />}
+          {syncing ? 'Syncing...' : 'Sync Knowledge to GitHub'}
+        </button>
+        {syncResult && (
+          <p className={`text-xs ${syncResult.startsWith('Error') ? 'text-red-500' : 'text-green-600'}`}>
+            {syncResult}
+          </p>
+        )}
+      </div>
+
+      {/* Search APIs */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wide">
+          Search APIs (Optional)
+        </h3>
+        <Field label="Tavily API Key" type="password" value={data.tavilyKey}
+          placeholder="tvly-..." onChange={(v) => setData({ ...data, tavilyKey: v })} />
+        <Field label="Serper API Key" type="password" value={data.serperKey}
+          placeholder="..." onChange={(v) => setData({ ...data, serperKey: v })} />
+      </div>
+
+      <button onClick={handleSaveIntegrations}
+        className="w-full py-2 rounded-lg bg-accent text-white text-sm font-semibold
+          hover:bg-accent-hover transition-colors">
+        {intSaved ? 'Saved!' : 'Save Integration Settings'}
+      </button>
     </div>
   );
 }

@@ -7,15 +7,44 @@ import * as crypto from 'crypto';
 const CONFIG_DIR = path.join(os.homedir(), '.openasst');
 const DEVICES_FILE = path.join(CONFIG_DIR, 'devices.json');
 
+export type ConnectionType = 'ssh' | 'local' | 'docker' | 'docker-remote' | 'kubernetes' | 'wsl';
+
 export interface DeviceConfig {
   id: string;
   name: string;
-  host: string;
-  port: number;
-  username: string;
-  authType: 'password' | 'privateKey';
+  connectionType: ConnectionType;
+  // SSH
+  host?: string;
+  port?: number;
+  username?: string;
+  authType?: 'password' | 'privateKey';
   password?: string;
   privateKeyPath?: string;
+  // Docker
+  containerName?: string;
+  containerId?: string;
+  isRemoteDocker?: boolean;
+  // Docker Remote API
+  dockerApiHost?: string;
+  dockerApiPort?: number;
+  dockerApiProtocol?: 'http' | 'https';
+  dockerTlsCa?: string;
+  dockerTlsCert?: string;
+  dockerTlsKey?: string;
+  // Kubernetes
+  podName?: string;
+  namespace?: string;
+  k8sContainerName?: string;
+  // WSL
+  distributionName?: string;
+  // Remote connection (for remote Docker/K8s)
+  remoteHost?: string;
+  remotePort?: number;
+  remoteUsername?: string;
+  remoteAuthType?: 'password' | 'privateKey';
+  remotePassword?: string;
+  remotePrivateKeyPath?: string;
+  // General
   tags: string[];
   group?: string;
   description?: string;
@@ -49,12 +78,32 @@ export class DeviceManager {
     const newDevice: DeviceConfig = {
       id,
       name: device.name || id,
-      host: device.host || '',
+      connectionType: device.connectionType || 'ssh',
+      host: device.host,
       port: device.port || 22,
       username: device.username || 'root',
       authType: device.authType || 'password',
       password: device.password,
       privateKeyPath: device.privateKeyPath,
+      containerName: device.containerName,
+      containerId: device.containerId,
+      isRemoteDocker: device.isRemoteDocker,
+      dockerApiHost: device.dockerApiHost,
+      dockerApiPort: device.dockerApiPort,
+      dockerApiProtocol: device.dockerApiProtocol,
+      dockerTlsCa: device.dockerTlsCa,
+      dockerTlsCert: device.dockerTlsCert,
+      dockerTlsKey: device.dockerTlsKey,
+      podName: device.podName,
+      namespace: device.namespace,
+      k8sContainerName: device.k8sContainerName,
+      distributionName: device.distributionName,
+      remoteHost: device.remoteHost,
+      remotePort: device.remotePort,
+      remoteUsername: device.remoteUsername,
+      remoteAuthType: device.remoteAuthType,
+      remotePassword: device.remotePassword,
+      remotePrivateKeyPath: device.remotePrivateKeyPath,
       tags: device.tags || [],
       group: device.group,
       description: device.description,
@@ -179,6 +228,14 @@ export class DeviceManager {
         const keyPath = device.privateKeyPath.replace('~', os.homedir());
         sshCmd = `ssh -i "${keyPath}" -o ConnectTimeout=10 -o StrictHostKeyChecking=no -p ${device.port} ${device.username}@${device.host} "echo OK"`;
       } else if (device.password) {
+        // Check sshpass availability
+        const sshpassCheck = await this.executor.execute('which sshpass 2>/dev/null');
+        if (sshpassCheck.exitCode !== 0) {
+          const hint = process.platform === 'darwin'
+            ? 'Run: brew install hudochenkov/sshpass/sshpass'
+            : 'Run: apt-get install sshpass';
+          return { ok: false, error: `sshpass not installed (required for password auth). ${hint}` };
+        }
         sshCmd = `sshpass -p "${device.password}" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -p ${device.port} ${device.username}@${device.host} "echo OK"`;
       } else {
         sshCmd = `ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -p ${device.port} ${device.username}@${device.host} "echo OK"`;

@@ -9,6 +9,8 @@ export interface AgentConn {
   connectedAt: Date;
   lastHeartbeat: Date;
   authenticated: boolean;
+  capabilities: string[];
+  version?: string;
 }
 
 interface WSMsg {
@@ -26,6 +28,9 @@ export class WSHub {
   private secretKey: string;
   private pendingResults: Map<string, unknown[]> = new Map();
   private resultCallbacks: Map<string, (results: unknown[]) => void> = new Map();
+  private taskProgressCallbacks: Map<string, (event: unknown) => void> = new Map();
+  private taskResultCallbacks: Map<string, (result: unknown) => void> = new Map();
+  private taskResultCounts: Map<string, { received: number; expected: number; results: unknown[] }> = new Map();
 
   constructor(deviceManager: DeviceManager) {
     this.deviceManager = deviceManager;
@@ -86,6 +91,7 @@ export class WSHub {
       connectedAt: new Date(),
       lastHeartbeat: new Date(),
       authenticated: false,
+      capabilities: ['command'],
     };
 
     this.agents.set(connId, conn);
@@ -114,6 +120,15 @@ export class WSHub {
         case 'command_result':
           this.handleCommandResult(msg);
           break;
+        case 'task_progress':
+          this.handleTaskProgress(msg);
+          break;
+        case 'task_result':
+          this.handleTaskResult(msg);
+          break;
+        case 'config_sync_ack':
+          this.handleConfigSyncAck(msg);
+          break;
       }
     } catch {
       // ignore parse errors
@@ -121,11 +136,18 @@ export class WSHub {
   }
 
   private handleAuth(conn: AgentConn, msg: WSMsg): void {
-    const { agentName, secretKey } = msg.payload as { agentName: string; secretKey: string };
+    const { agentName, secretKey, capabilities, version } = msg.payload as {
+      agentName: string;
+      secretKey: string;
+      capabilities?: string[];
+      version?: string;
+    };
 
     if (secretKey === this.secretKey) {
       conn.authenticated = true;
       conn.name = agentName;
+      conn.capabilities = capabilities || ['command'];
+      conn.version = version;
       this.send(conn.ws, {
         type: 'auth_result',
         payload: { success: true },
@@ -155,6 +177,37 @@ export class WSHub {
     results.push(msg.payload);
     this.pendingResults.set(msg.taskId, results);
 
+    const callback = this.resultCallbacks.get(msg.taskId);
+    if (callback) callback(results);
+  }
+
+  private handleTaskProgress(msg: WSMsg): void {
+    if (!msg.taskId) return;
+    const callback = this.taskProgressCallbacks.get(msg.taskId);
+    if (callback) callback(msg.payload);
+  }
+
+  private handleTaskResult(msg: WSMsg): void {
+    if (!msg.taskId) return;
+    const tracker = this.taskResultCounts.get(msg.taskId);
+    if (tracker) {
+      tracker.received++;
+      tracker.results.push(msg.payload);
+      if (tracker.received >= tracker.expected) {
+        const cb = this.taskResultCallbacks.get(msg.taskId);
+        if (cb) cb(tracker.results);
+        this.taskResultCounts.delete(msg.taskId);
+        this.taskResultCallbacks.delete(msg.taskId);
+        this.taskProgressCallbacks.delete(msg.taskId);
+      }
+    }
+  }
+
+  private handleConfigSyncAck(msg: WSMsg): void {
+    if (!msg.taskId) return;
+    const results = this.pendingResults.get(msg.taskId) || [];
+    results.push(msg.payload);
+    this.pendingResults.set(msg.taskId, results);
     const callback = this.resultCallbacks.get(msg.taskId);
     if (callback) callback(results);
   }
@@ -211,5 +264,125 @@ export class WSHub {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
     }
+  }
+
+  /**
+   * Dispatch a high-level task to smart agents.
+   * Returns results from all targeted agents.
+   */
+  async dispatchTask(
+    task: string,
+    targetNames: string[],
+    timeout: number = 300000,
+    onProgress?: (event: unknown) => void,
+  ): Promise<unknown[]> {
+    const taskId = crypto.randomBytes(8).toString('hex');
+    const allOnline = this.getOnlineAgents();
+    const targets = targetNames.length > 0
+      ? allOnline.filter((a) => targetNames.includes(a.name))
+      : allOnline;
+
+    // Only dispatch to agents with 'task' capability
+    const smartTargets = targets.filter((a) => a.capabilities.includes('task'));
+    if (smartTargets.length === 0) return [];
+
+    // Register progress callback
+    if (onProgress) {
+      this.taskProgressCallbacks.set(taskId, onProgress);
+    }
+
+    // Track expected results
+    this.taskResultCounts.set(taskId, {
+      received: 0,
+      expected: smartTargets.length,
+      results: [],
+    });
+
+    // Send task to each smart agent
+    for (const agent of smartTargets) {
+      this.send(agent.ws, {
+        type: 'task',
+        taskId,
+        payload: { task },
+        timestamp: Date.now(),
+      });
+    }
+
+    return new Promise((resolve) => {
+      this.taskResultCallbacks.set(taskId, (results) => {
+        clearTimeout(timer);
+        resolve(results as unknown[]);
+      });
+
+      const timer = setTimeout(() => {
+        const tracker = this.taskResultCounts.get(taskId);
+        const partial = tracker ? tracker.results : [];
+        this.taskResultCounts.delete(taskId);
+        this.taskResultCallbacks.delete(taskId);
+        this.taskProgressCallbacks.delete(taskId);
+        resolve(partial);
+      }, timeout);
+    });
+  }
+
+  /**
+   * Check if any online agent has 'task' capability.
+   */
+  hasSmartAgents(targetNames?: string[]): boolean {
+    const agents = targetNames?.length
+      ? this.getOnlineAgents().filter((a) => targetNames.includes(a.name))
+      : this.getOnlineAgents();
+    return agents.some((a) => a.capabilities.includes('task'));
+  }
+
+  /**
+   * Sync API config to connected agents.
+   */
+  async syncConfig(
+    config: Record<string, unknown>,
+    targetNames: string[],
+    timeout: number = 30000,
+  ): Promise<unknown[]> {
+    const taskId = crypto.randomBytes(8).toString('hex');
+    const allOnline = this.getOnlineAgents();
+    const targets = targetNames.length > 0
+      ? allOnline.filter((a) => targetNames.includes(a.name))
+      : allOnline;
+
+    if (targets.length === 0) return [];
+
+    this.pendingResults.set(taskId, []);
+
+    for (const agent of targets) {
+      this.send(agent.ws, {
+        type: 'config_sync',
+        taskId,
+        payload: { config },
+        timestamp: Date.now(),
+      });
+    }
+
+    return new Promise((resolve) => {
+      const checkComplete = (results: unknown[]) => {
+        if (results.length >= targets.length) {
+          cleanup();
+          resolve(results);
+        }
+      };
+
+      const cleanup = () => {
+        this.resultCallbacks.delete(taskId);
+        this.pendingResults.delete(taskId);
+        clearTimeout(timer);
+      };
+
+      this.resultCallbacks.set(taskId, checkComplete);
+
+      const timer = setTimeout(() => {
+        const partial = this.pendingResults.get(taskId) || [];
+        cleanup();
+        resolve(partial);
+      }, timeout);
+    });
   }
 }

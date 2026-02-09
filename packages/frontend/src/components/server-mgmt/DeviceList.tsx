@@ -2,15 +2,30 @@ import { useState, useEffect } from 'react';
 import { Server, Plus, Plug, Trash2, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../lib/config';
 
+export type ConnectionType = 'ssh' | 'local' | 'docker' | 'docker-remote' | 'kubernetes' | 'wsl';
+
 export interface Device {
   id: string;
   label: string;
+  connectionType: ConnectionType;
   host: string;
   port: number;
   username: string;
   group?: string;
   authType: 'password' | 'key';
   connected?: boolean;
+  // Docker
+  containerName?: string;
+  // Docker Remote API
+  dockerApiHost?: string;
+  dockerApiPort?: number;
+  dockerApiProtocol?: 'http' | 'https';
+  // Kubernetes
+  podName?: string;
+  namespace?: string;
+  k8sContainerName?: string;
+  // WSL
+  distributionName?: string;
 }
 
 interface DeviceListProps {
@@ -132,7 +147,12 @@ export function DeviceList({ onSelectDevice, onAddDevice }: DeviceListProps) {
                 </span>
               </div>
               <div className="text-xs text-ink-muted mb-2">
-                {device.username}@{device.host}:{device.port}
+                {device.connectionType === 'local' ? 'localhost' :
+                 device.connectionType === 'docker' ? `docker: ${device.containerName || '?'}` :
+                 device.connectionType === 'docker-remote' ? `docker-remote: ${device.dockerApiHost || '?'}` :
+                 device.connectionType === 'kubernetes' ? `k8s: ${device.podName || '?'}${device.namespace ? `/${device.namespace}` : ''}` :
+                 device.connectionType === 'wsl' ? `wsl: ${device.distributionName || 'default'}` :
+                 `${device.username}@${device.host}:${device.port}`}
               </div>
               <div className="flex items-center gap-2">
                 <button

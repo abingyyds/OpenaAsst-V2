@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Brain, Terminal, CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Brain, Terminal, CheckCircle2, XCircle, Loader2, AlertTriangle, Send, Activity, UserCheck } from 'lucide-react';
 import type { ClusterEvent } from '../../hooks/useClusterExec';
 
 interface ExecutionStreamProps {
@@ -58,6 +58,12 @@ function EventCard({ event }: { event: ClusterEvent }) {
       return <CompleteCard data={event.data} />;
     case 'error':
       return <ErrorCard data={event.data} />;
+    case 'task_dispatched':
+      return <TaskDispatchedCard data={event.data} />;
+    case 'agent_progress':
+      return <AgentProgressCard data={event.data} />;
+    case 'agent_complete':
+      return <AgentCompleteCard data={event.data} />;
     default:
       return null;
   }
@@ -191,6 +197,80 @@ function ErrorCard({ data }: { data: Record<string, unknown> }) {
         Error
       </div>
       <p className="text-xs text-red-600 mt-1">{String(data.message || 'Unknown error')}</p>
+    </div>
+  );
+}
+
+function TaskDispatchedCard({ data }: { data: Record<string, unknown> }) {
+  const targets = (data.targets as string[]) || [];
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 mb-1">
+        <Send size={12} />
+        Task Dispatched
+      </div>
+      <p className="text-xs text-blue-600">{String(data.message || '')}</p>
+      {targets.length > 0 && (
+        <div className="text-[11px] text-blue-500 mt-1">
+          Agents: {targets.join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgentProgressCard({ data }: { data: Record<string, unknown> }) {
+  const agentName = String(data.agentName || data.name || 'agent');
+  const phase = String(data.phase || '');
+  const step = data.step as number | undefined;
+  const totalSteps = data.totalSteps as number | undefined;
+  const description = String(data.description || '');
+
+  return (
+    <div className="bg-surface border border-stone-200 rounded-lg px-3 py-2">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-ink-secondary mb-1">
+        <Activity size={12} className="text-accent" />
+        <span>{agentName}</span>
+        {step != null && totalSteps != null && (
+          <span className="ml-auto text-[10px] text-ink-muted">
+            Step {step}/{totalSteps}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+        {phase === 'planning' && <Loader2 size={10} className="animate-spin" />}
+        {phase === 'step_start' && <Loader2 size={10} className="animate-spin" />}
+        {phase === 'step_complete' && <CheckCircle2 size={10} className="text-green-500" />}
+        {phase === 'step_failed' && <XCircle size={10} className="text-red-500" />}
+        <span>{description || phase}</span>
+      </div>
+    </div>
+  );
+}
+
+function AgentCompleteCard({ data }: { data: Record<string, unknown> }) {
+  const agentName = String(data.agentName || data.name || 'agent');
+  const success = !!data.success;
+  const summary = String(data.summary || data.message || '');
+
+  return (
+    <div className={`border rounded-lg px-3 py-2 ${
+      success
+        ? 'bg-green-50 border-green-200'
+        : 'bg-red-50 border-red-200'
+    }`}>
+      <div className="flex items-center gap-1.5 text-xs font-semibold">
+        {success ? (
+          <><UserCheck size={12} className="text-green-600" /> {agentName} — Completed</>
+        ) : (
+          <><XCircle size={12} className="text-red-600" /> {agentName} — Failed</>
+        )}
+      </div>
+      {summary && (
+        <p className={`text-[11px] mt-1 ${success ? 'text-green-600' : 'text-red-600'}`}>
+          {summary}
+        </p>
+      )}
     </div>
   );
 }

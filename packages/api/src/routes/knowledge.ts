@@ -46,3 +46,33 @@ knowledgeRoutes.delete('/:category/:itemId', (c) => {
   const deleted = km.deleteItem(category, itemId);
   return c.json({ deleted });
 });
+
+// POST /knowledge/sync — sync to GitHub
+knowledgeRoutes.post('/sync', async (c) => {
+  try {
+    const result = await km.syncToGitHub();
+    return c.json(result);
+  } catch {
+    return c.json({ error: 'Failed to sync to GitHub' }, 500);
+  }
+});
+
+// POST /knowledge/learn — AI learn from execution
+knowledgeRoutes.post('/learn', async (c) => {
+  try {
+    const { task, commands, result, success } = await c.req.json();
+    if (!task) return c.json({ error: 'task is required' }, 400);
+    const learned = km.learnFromExecution(task, commands || [], result || '', success ?? true);
+    return c.json({ learned });
+  } catch {
+    return c.json({ error: 'Failed to learn' }, 500);
+  }
+});
+
+// GET /knowledge/category/:id — get items for a category
+knowledgeRoutes.get('/category/:id', (c) => {
+  const { id } = c.req.param();
+  const cat = km.getCategory(id);
+  if (!cat) return c.json({ error: 'Category not found' }, 404);
+  return c.json(cat);
+});

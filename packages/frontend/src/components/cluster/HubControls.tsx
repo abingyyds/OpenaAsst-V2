@@ -1,4 +1,4 @@
-import { Power, PowerOff, Upload, Loader2 } from 'lucide-react';
+import { Power, PowerOff, Upload, Loader2, RefreshCw } from 'lucide-react';
 
 interface HubControlsProps {
   running: boolean;
@@ -7,6 +7,7 @@ interface HubControlsProps {
   onStart: () => void;
   onStop: () => void;
   onDeployAll: () => void;
+  onSyncConfig: () => void;
 }
 
 export function HubControls({
@@ -16,6 +17,7 @@ export function HubControls({
   onStart,
   onStop,
   onDeployAll,
+  onSyncConfig,
 }: HubControlsProps) {
   return (
     <div className="px-3 py-3 border-b border-stone-200">
@@ -88,6 +90,22 @@ export function HubControls({
           >
             <Upload size={12} />
             Deploy
+          </button>
+        )}
+
+        {running && agentCount > 0 && (
+          <button
+            onClick={onSyncConfig}
+            disabled={loading}
+            className="flex items-center justify-center gap-1.5
+              px-2 py-1.5 rounded-lg text-xs font-medium
+              border border-stone-200 text-ink-secondary
+              hover:bg-stone-100 transition-colors
+              disabled:opacity-50"
+            title="Sync API config to all connected agents"
+          >
+            <RefreshCw size={12} />
+            Sync Config
           </button>
         )}
       </div>

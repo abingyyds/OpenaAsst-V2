@@ -11,7 +11,10 @@ export interface ClusterEvent {
     | 'command_output'
     | 'verification'
     | 'complete'
-    | 'error';
+    | 'error'
+    | 'task_dispatched'
+    | 'agent_progress'
+    | 'agent_complete';
   data: Record<string, unknown>;
   timestamp: number;
 }

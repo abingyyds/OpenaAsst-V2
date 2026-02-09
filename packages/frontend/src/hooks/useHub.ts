@@ -70,5 +70,17 @@ export function useHub() {
     return res.ok ? (await res.json()).results : [];
   }, []);
 
-  return { hub, loading, start, stop, deploy, deployAll, broadcast, refresh: fetchStatus };
+  const syncConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/hub/sync-config`, {
+        method: 'POST',
+      });
+      return res.ok ? await res.json() : { error: 'Failed to sync config' };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { hub, loading, start, stop, deploy, deployAll, broadcast, syncConfig, refresh: fetchStatus };
 }

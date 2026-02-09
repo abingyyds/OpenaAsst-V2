@@ -10,7 +10,10 @@ export interface AiExecEvent {
     | 'command_output'
     | 'verification'
     | 'complete'
-    | 'error';
+    | 'error'
+    | 'task_dispatched'
+    | 'agent_progress'
+    | 'agent_complete';
   data: Record<string, unknown>;
 }
 
@@ -59,6 +62,13 @@ export async function* aiAutoExecute(
     },
   };
 
+  // Check if targets have smart agent capability — use task dispatch mode
+  if (hub.hasSmartAgents(targets)) {
+    yield* smartAgentExecute(hub, task, targets);
+    return;
+  }
+
+  // Fallback: legacy desktop-side AI loop for dumb agents
   const history: ExecHistory[] = [];
   let completed = false;
 
@@ -163,6 +173,71 @@ export async function* aiAutoExecute(
         : `Reached max iterations (${MAX_ITERATIONS})`,
     },
   };
+}
+
+// --- Smart Agent task dispatch mode ---
+
+async function* smartAgentExecute(
+  hub: WSHub,
+  task: string,
+  targets: string[],
+): AsyncGenerator<AiExecEvent> {
+  yield {
+    type: 'task_dispatched',
+    data: {
+      task,
+      targets,
+      message: `Task dispatched to ${targets.length} smart agent(s)`,
+    },
+  };
+
+  const progressEvents: AiExecEvent[] = [];
+
+  const onProgress = (event: unknown) => {
+    const evt = event as Record<string, unknown>;
+    progressEvents.push({
+      type: 'agent_progress',
+      data: evt,
+    });
+  };
+
+  try {
+    const results = await hub.dispatchTask(task, targets, 300000, onProgress);
+
+    // Yield all collected progress events
+    for (const evt of progressEvents) {
+      yield evt;
+    }
+
+    // Yield individual agent results
+    for (const result of results) {
+      const r = result as Record<string, unknown>;
+      yield {
+        type: 'agent_complete',
+        data: r,
+      };
+    }
+
+    const allSuccess = (results as any[]).every((r: any) => r?.success);
+
+    yield {
+      type: 'complete',
+      data: {
+        success: allSuccess,
+        message: allSuccess
+          ? 'All agents completed successfully'
+          : 'Some agents failed',
+        results,
+      },
+    };
+  } catch (err) {
+    yield {
+      type: 'error',
+      data: {
+        message: `Task dispatch failed: ${err instanceof Error ? err.message : String(err)}`,
+      },
+    };
+  }
 }
 
 // --- AI Plan types ---

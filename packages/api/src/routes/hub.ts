@@ -4,6 +4,7 @@ import { WSHub } from '../hub/ws-hub.js';
 import { AgentDeployer } from '../hub/agent-deployer.js';
 import { DeviceManager } from '../server-mgmt/device-manager.js';
 import { aiAutoExecute } from '../hub/auto-execute.js';
+import { APIProvider } from '../server-mgmt/api-provider.js';
 
 export const hubRoutes = new Hono();
 
@@ -34,6 +35,8 @@ hubRoutes.get('/status', (c) => {
     name: a.name,
     connectedAt: a.connectedAt.toISOString(),
     lastHeartbeat: a.lastHeartbeat.toISOString(),
+    capabilities: a.capabilities,
+    version: a.version,
   }));
   return c.json({
     running: hub.isRunning(),
@@ -109,4 +112,31 @@ hubRoutes.post('/ai-execute', async (c) => {
       });
     }
   });
+});
+
+// POST /hub/sync-config — push API config to all connected agents
+hubRoutes.post('/sync-config', async (c) => {
+  try {
+    if (!hub.isRunning()) {
+      return c.json({ error: 'Hub is not running' }, 400);
+    }
+
+    const apiProvider = new APIProvider();
+    const endpoint = apiProvider.getAPIEndpoint();
+
+    if (!endpoint) {
+      return c.json({ error: 'No API config found. Set up in Settings first.' }, 400);
+    }
+
+    const onlineAgents = hub.getOnlineAgents().map((a) => a.name);
+    if (onlineAgents.length === 0) {
+      return c.json({ error: 'No online agents' }, 400);
+    }
+
+    const results = await hub.syncConfig(endpoint, [], 30000);
+    return c.json({ success: true, synced: results.length, results });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: msg }, 500);
+  }
 });
