@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/logo.png" alt="OpenAsst Logo" width="180"/>
+<img src="docs/logo.svg" alt="OpenAsst Logo" width="180"/>
 
 # OpenAsst V2
 

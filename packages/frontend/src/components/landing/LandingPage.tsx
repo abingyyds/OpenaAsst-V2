@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Monitor, Terminal, Globe, Download, Copy, Check, ChevronRight } from 'lucide-react';
+import { Logo } from '../shared/Logo';
 
 type Platform = 'unix' | 'powershell' | 'cmd';
 
@@ -63,7 +64,10 @@ function HeroSection({ onLogin, onRegister }: { onLogin: () => void; onRegister:
         </div>
       </div>
 
-      {/* title */}
+      {/* logo + title */}
+      <div className="relative z-10 mb-4">
+        <Logo size={72} className="drop-shadow-[0_0_24px_rgba(217,119,87,0.35)]" />
+      </div>
       <h1 className="text-6xl md:text-7xl font-heading font-bold tracking-tight text-center relative z-10">
         <span className="text-white">Open</span>
         <span className="text-[#d97757] glow-text">Asst</span>

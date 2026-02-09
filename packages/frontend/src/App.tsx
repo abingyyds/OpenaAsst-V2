@@ -58,7 +58,7 @@ export function App() {
 
   // Logged in — main app
   return (
-    <div className="h-screen flex bg-page">
+    <div className="h-screen flex bg-page overflow-hidden">
       <Sidebar activeView={activeView} onNavigate={setActiveView} />
 
       <div className="flex-1 flex overflow-hidden">

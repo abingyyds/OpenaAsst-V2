@@ -1,5 +1,6 @@
 import { MessageSquare, Server, Settings, FileText, Code, Globe, FolderOpen, Network, BookOpen, Bot, ShoppingBag, Zap, LogOut } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { Logo } from '../shared/Logo';
 
 export type ViewType = 'chat' | 'servers' | 'cluster' | 'documents' | 'code' | 'websites' | 'files' | 'knowledge' | 'robots' | 'marketplace' | 'skills' | 'settings';
 
@@ -28,6 +29,11 @@ export function Sidebar({ activeView, onNavigate }: SidebarProps) {
 
   return (
     <div className="w-[68px] h-full flex flex-col items-center py-3 gap-0.5 bg-sidebar border-r border-stone-700">
+      {/* Brand logo */}
+      <div className="mb-2 pb-2 border-b border-stone-700/50">
+        <Logo size={36} />
+      </div>
+
       {navItems.map(({ view, icon: Icon, label, highlight }) => {
         const active = activeView === view;
         return (
