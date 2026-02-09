@@ -38,3 +38,52 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
+
+/* Landing page */
+.landing-page {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+.landing-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.glow-text {
+  text-shadow: 0 0 20px rgba(217,119,87,.4), 0 0 40px rgba(217,119,87,.2);
+}
+
+.terminal-window {
+  background: #1a1917;
+  border: 1px solid #2e2c28;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2e2c28;
+}
+
+.terminal-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+  color: #d97757;
+}

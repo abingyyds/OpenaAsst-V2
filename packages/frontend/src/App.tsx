@@ -16,14 +16,15 @@ import { SkillsView } from './components/skills/SkillsView';
 import { LoginPage } from './components/auth/LoginPage';
 import { RegisterPage } from './components/auth/RegisterPage';
 import { AuthCallback } from './components/auth/AuthCallback';
+import { LandingPage } from './components/landing/LandingPage';
 import { useAuth } from './hooks/useAuth';
 
-type AuthView = 'login' | 'register' | 'callback';
+type AuthView = 'landing' | 'login' | 'register' | 'callback';
 
 export function App() {
   const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState<ViewType>('chat');
-  const [authView, setAuthView] = useState<AuthView>('login');
+  const [authView, setAuthView] = useState<AuthView>('landing');
 
   // Handle OAuth callback
   if (window.location.hash.includes('access_token')) {
@@ -44,7 +45,15 @@ export function App() {
     if (authView === 'register') {
       return <RegisterPage onSwitchToLogin={() => setAuthView('login')} />;
     }
-    return <LoginPage onSwitchToRegister={() => setAuthView('register')} />;
+    if (authView === 'login') {
+      return <LoginPage onSwitchToRegister={() => setAuthView('register')} />;
+    }
+    return (
+      <LandingPage
+        onLogin={() => setAuthView('login')}
+        onRegister={() => setAuthView('register')}
+      />
+    );
   }
 
   // Logged in — main app
