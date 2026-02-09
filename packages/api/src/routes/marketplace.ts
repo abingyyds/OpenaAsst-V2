@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { MarketplaceManager } from '../marketplace/manager.js';
 import { authMiddleware } from '../middleware/auth.js';
 
-type Env = { Variables: { userId: string | null } };
+type Env = { Variables: { userId: string | undefined } };
 
 export const marketplaceRoutes = new Hono<Env>();
 const mp = new MarketplaceManager();
