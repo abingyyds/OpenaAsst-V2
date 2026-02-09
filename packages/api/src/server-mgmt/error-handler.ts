@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ExecutionLog } from './executor';
+import { ExecutionLog } from './executor.js';
 
 const CONFIG_FILE = path.join(os.homedir(), '.openasst', 'config.json');
 

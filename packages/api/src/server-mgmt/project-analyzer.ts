@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { CommandExecutor } from './executor';
+import { CommandExecutor } from './executor.js';
 
 export interface ProjectInfo {
   name: string;

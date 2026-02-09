@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { CommandScript } from './marketplace';
+import { CommandScript } from './marketplace.js';
 
 interface KnowledgeBaseItem {
   id: string;

@@ -1,4 +1,4 @@
-import { CommandExecutor } from './executor';
+import { CommandExecutor } from './executor.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
