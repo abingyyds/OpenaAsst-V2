@@ -4,7 +4,7 @@ RUN corepack enable && corepack prepare pnpm@9 --activate
 
 WORKDIR /app
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/types/package.json packages/types/
 COPY packages/api/package.json packages/api/
 COPY packages/frontend/package.json packages/frontend/
