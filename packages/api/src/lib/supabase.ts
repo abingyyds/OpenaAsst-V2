@@ -7,4 +7,6 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('Supabase credentials not found. Database features will be disabled.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : null as any;
