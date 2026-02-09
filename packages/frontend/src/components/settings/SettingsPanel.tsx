@@ -360,7 +360,7 @@ function loadIntegrations() {
     const raw = localStorage.getItem(INTEGRATIONS_KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* ignore */ }
-  return { githubToken: '', githubRepo: 'abingyyds/OpenAsst', tavilyKey: '', serperKey: '' };
+  return { tavilyKey: '', serperKey: '' };
 }
 
 function IntegrationsTab() {
@@ -368,6 +368,14 @@ function IntegrationsTab() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [intSaved, setIntSaved] = useState(false);
+  const [ghStatus, setGhStatus] = useState<{ configured: boolean; repo?: string } | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/knowledge/sync/status`)
+      .then((r) => r.json())
+      .then((d) => setGhStatus(d))
+      .catch(() => setGhStatus({ configured: false }));
+  }, []);
 
   const handleSaveIntegrations = () => {
     localStorage.setItem(INTEGRATIONS_KEY, JSON.stringify(data));
@@ -399,11 +407,32 @@ function IntegrationsTab() {
         <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wide">
           GitHub Knowledge Sync
         </h3>
-        <Field label="GitHub Token" type="password" value={data.githubToken}
-          placeholder="ghp_..." onChange={(v) => setData({ ...data, githubToken: v })} />
-        <Field label="GitHub Repo" value={data.githubRepo}
-          placeholder="owner/repo" onChange={(v) => setData({ ...data, githubRepo: v })} />
-        <button onClick={handleSync} disabled={syncing}
+        <div className="rounded-lg border border-stone-300 bg-surface px-4 py-3 text-sm">
+          {ghStatus === null ? (
+            <span className="text-ink-muted">Checking configuration...</span>
+          ) : ghStatus.configured ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-green-700 font-medium">GitHub configured</span>
+              </div>
+              <p className="text-ink-muted text-xs">Repo: {ghStatus.repo}</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-stone-400" />
+                <span className="text-ink-muted font-medium">GitHub not configured</span>
+              </div>
+              <p className="text-ink-muted text-xs">
+                Set <code className="bg-stone-200 px-1 rounded">GITHUB_TOKEN</code> and{' '}
+                <code className="bg-stone-200 px-1 rounded">GITHUB_REPO</code> environment
+                variables on the server to enable sync.
+              </p>
+            </div>
+          )}
+        </div>
+        <button onClick={handleSync} disabled={syncing || !ghStatus?.configured}
           className="w-full py-2 rounded-lg border border-accent text-accent text-sm font-semibold
             hover:bg-accent/5 disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
           {syncing && <Loader2 size={14} className="animate-spin" />}

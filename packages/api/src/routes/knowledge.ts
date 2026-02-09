@@ -24,27 +24,14 @@ knowledgeRoutes.get('/search', (c) => {
   return c.json({ results });
 });
 
-// POST /knowledge/:category — add item to category
-knowledgeRoutes.post('/:category', async (c) => {
-  const categoryId = c.req.param('category');
-  const body = await c.req.json();
-  if (!body.title || !body.solution) {
-    return c.json({ error: 'title and solution required' }, 400);
-  }
-  km.addItem(categoryId, {
-    title: body.title,
-    keywords: body.keywords || [],
-    solution: body.solution,
-    commands: body.commands || [],
+// GET /knowledge/sync/status — check GitHub sync configuration
+knowledgeRoutes.get('/sync/status', (c) => {
+  const token = process.env.GITHUB_TOKEN;
+  const repo = process.env.GITHUB_REPO || 'abingyyds/OpenAsst';
+  return c.json({
+    configured: !!token,
+    repo: token ? repo : undefined,
   });
-  return c.json({ success: true });
-});
-
-// DELETE /knowledge/:category/:itemId — delete item
-knowledgeRoutes.delete('/:category/:itemId', (c) => {
-  const { category, itemId } = c.req.param();
-  const deleted = km.deleteItem(category, itemId);
-  return c.json({ deleted });
 });
 
 // POST /knowledge/sync — sync to GitHub
@@ -75,4 +62,27 @@ knowledgeRoutes.get('/category/:id', (c) => {
   const cat = km.getCategory(id);
   if (!cat) return c.json({ error: 'Category not found' }, 404);
   return c.json(cat);
+});
+
+// POST /knowledge/:category — add item to category (param route MUST be last)
+knowledgeRoutes.post('/:category', async (c) => {
+  const categoryId = c.req.param('category');
+  const body = await c.req.json();
+  if (!body.title || !body.solution) {
+    return c.json({ error: 'title and solution required' }, 400);
+  }
+  km.addItem(categoryId, {
+    title: body.title,
+    keywords: body.keywords || [],
+    solution: body.solution,
+    commands: body.commands || [],
+  });
+  return c.json({ success: true });
+});
+
+// DELETE /knowledge/:category/:itemId — delete item
+knowledgeRoutes.delete('/:category/:itemId', (c) => {
+  const { category, itemId } = c.req.param();
+  const deleted = km.deleteItem(category, itemId);
+  return c.json({ deleted });
 });

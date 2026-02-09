@@ -129,6 +129,9 @@ export class KnowledgeManager {
 
     writeFileSync(filePath, JSON.stringify(cat, null, 2));
     this.updateIndex();
+
+    // Fire-and-forget GitHub sync
+    this.syncToGitHub().catch(() => {});
   }
 
   /** Delete an item from a category */
