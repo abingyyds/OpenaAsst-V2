@@ -6,6 +6,7 @@ import { join } from 'path';
 const COMMON_PATHS = [
   '/usr/local/bin/claude',
   '/opt/homebrew/bin/claude',
+  join(homedir(), '.local/bin/claude'),
   join(homedir(), '.npm-global/bin/claude'),
   join(homedir(), '.volta/bin/claude'),
 ];
