@@ -33,7 +33,15 @@ app.route('/robots', robotRoutes);
 app.route('/marketplace', marketplaceRoutes);
 app.route('/skills', skillRoutes);
 
-app.get('/health', (c) => c.json({ status: 'ok' }));
+app.get('/health', async (c) => {
+  let claudeCode = false;
+  try {
+    const { findClaudeCodePath } = await import('./agent/claude-path.js');
+    const p = await findClaudeCodePath();
+    claudeCode = !!p;
+  } catch {}
+  return c.json({ status: 'ok', claudeCode });
+});
 
 // Production: serve frontend static files
 if (process.env.NODE_ENV === 'production') {
