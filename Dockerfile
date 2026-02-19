@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
@@ -23,9 +23,9 @@ RUN pnpm build:types
 RUN pnpm build:frontend
 RUN pnpm build:api
 
-FROM node:20-alpine AS runtime
+FROM node:20-slim AS runtime
 
-RUN apk add --no-cache openssh-client sshpass
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-client sshpass && rm -rf /var/lib/apt/lists/*
 RUN npm install -g @anthropic-ai/claude-code
 
 WORKDIR /app
