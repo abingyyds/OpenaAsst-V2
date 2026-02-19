@@ -72,20 +72,10 @@ function ToolResultMessage({ message }: MessageBubbleProps) {
 }
 
 function ErrorMessage({ message }: MessageBubbleProps) {
-  const isClaudeCodeError = message.content?.includes('Claude Code not found');
   return (
     <div className="px-4 py-3 max-w-3xl mx-auto">
       <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm">
         {message.content}
-        {isClaudeCodeError && (
-          <div className="mt-2 pt-2 border-t border-red-200 text-xs text-red-500 space-y-1">
-            <p>Chat requires Claude Code CLI installed locally:</p>
-            <code className="block bg-red-100 rounded px-2 py-1 font-mono">
-              npm install -g @anthropic-ai/claude-code
-            </code>
-            <p>Then restart the API server.</p>
-          </div>
-        )}
       </div>
     </div>
   );

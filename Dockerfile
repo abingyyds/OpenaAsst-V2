@@ -25,6 +25,9 @@ RUN pnpm build:api
 
 FROM node:20-alpine AS runtime
 
+RUN apk add --no-cache openssh-client sshpass
+RUN npm install -g @anthropic-ai/claude-code
+
 WORKDIR /app
 
 COPY --from=build /app/packages/api/dist/ packages/api/dist/

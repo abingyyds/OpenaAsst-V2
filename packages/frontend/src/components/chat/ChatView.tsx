@@ -5,7 +5,7 @@ import { InputBar } from './InputBar';
 import { MessageBubble } from './MessageBubble';
 import { PlanView } from './PlanView';
 import { SessionSidebar } from './SessionSidebar';
-import { Bot, AlertTriangle, Terminal, Copy, Check } from 'lucide-react';
+import { Bot, AlertTriangle, Copy, Check } from 'lucide-react';
 import { API_BASE_URL } from '../../lib/config';
 
 export function ChatView() {
@@ -157,25 +157,12 @@ function WelcomeScreen() {
         <div className="mt-2 max-w-lg text-left">
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Terminal size={16} className="text-amber-600" />
-              <span className="font-semibold text-sm text-amber-800">Claude Code CLI Required</span>
+              <AlertTriangle size={16} className="text-amber-600" />
+              <span className="font-semibold text-sm text-amber-800">AI Agent Unavailable</span>
             </div>
-            <p className="text-amber-700 text-xs mb-3">
-              Chat is powered by Claude Code. Install it to get started:
+            <p className="text-amber-700 text-xs">
+              The AI agent is not configured on the server. Please ensure ANTHROPIC_API_KEY is set in the environment variables and restart the service.
             </p>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-medium text-amber-800 mb-1">1. Install Claude Code</p>
-                <CodeBlock text="npm install -g @anthropic-ai/claude-code" onCopy={handleCopy} copied={copied} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-amber-800 mb-1">2. Set your Anthropic API key</p>
-                <CodeBlock text="export ANTHROPIC_API_KEY=sk-ant-..." onCopy={handleCopy} copied={copied} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-amber-800 mb-1">3. Restart the API server</p>
-              </div>
-            </div>
           </div>
         </div>
       )}
